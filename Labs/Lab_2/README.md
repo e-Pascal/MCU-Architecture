@@ -4,8 +4,11 @@
 [#Цели работы](#цели-работы)\
 [#Контроллер сброса и тактирования (RCC)](#контроллер-сброса-и-тактирования-rcc)\
 [#Алгоритм конфигурации тактовых частот](#алгоритм-конфигурации-тактовых-частот)\
-[#Порядок выполнения работы](#порядок-выполнения-работы)\
-[#Ключевые слова](#ключевые-слова)
+[Порядок выполнения работы](#порядок-выполнения-работы)\
+[- Этап 1. Создание проекта для платы NUCLEO STM32H745ZI-Q](#этап-1-создание-проекта-для-платы-nucleo-stm32h745zi-q)\
+[- Этап 2. Подключение библиотеки HAL_LL](#этап-2-подключение-библиотеки-hal_ll)\
+[- Этап 3. Анализ шаблона программы для выполнения задания](#этап-3-анализ-шаблона-программы-для-выполнения-задания)\
+[- Этап 4. Практическое задание](#этап-4-практическое-задание)
 
 ## Введение
 
@@ -114,7 +117,7 @@
 
 ## Порядок выполнения работы
 
-### Часть 1. Создание проекта для платы NUCLEO STM32H745ZI-Q
+### Этап 1. Создание проекта для платы NUCLEO STM32H745ZI-Q
 
 - [x] 1. Создайте проект в среде PlatformIO для платформы ststm32, платы nucleo_h745zi_q, фреймворка CMSIS и процессора CORTEX-M7. Скопируйте в папку проекта все используемые при сборке файлы (скрипт компоновщика, startup и system файлы) и «пропишите» их файле проекта.
 
@@ -137,9 +140,9 @@
 
 - [x] 4. Добавьте в проект библиотеку управления светодиодами из лабораторной работы №1.
 
-### Часть 2. Подключение библиотеки HAL_LL
+### Этап 2. Подключение библиотеки HAL_LL
 
-Файлы библиотеки HAL находятся в каталоге C:\PlatformIO\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver. Библиотека HAL_LL входит в состав бибилиотеки HAL, однако может использоваться отдельно. 
+Файлы библиотеки HAL находятся в каталоге *C:\PlatformIO\packages\framework-stm32cubeh7\Drivers\STM32H7xx_HAL_Driver.* Библиотека HAL_LL входит в состав бибилиотеки HAL, однако может использоваться отдельно. 
 
 Библиотека HAL_LL имеет модульную структуру. Каждый модуль библиотеки HAL_LL представлен двумя файлами  ¬-  заголовочный и исполняемый файл. Например, модуль для управления блоком RCC состоит из файлов: stm32h7xx_ll_rcc.h и stm32h7xx_ll_rcc.с.  Файлы бибилиотеки HAL_LL имеют префикс hal_ll.
 
@@ -147,7 +150,7 @@
 
 Большинство модулей библиотеки HAL_LL самодостаточны, т.е. не зависят от других модулей. Однако, если такая зависимость имеется, то её легко отследить по включениям include в заголовочном файле модуля. 
 
-- [x] 1. Создайте каталоги $PROJECT_DIR/lib/hal_ll/src и $PROJECT_DIR/lib/hal_ll/include	
+- [x] 1. Создайте каталоги *$PROJECT_DIR/lib/hal_ll/src* и *$PROJECT_DIR/lib/hal_ll/include*
 
 > Здесь и далее $PROJECT_DIR обозначает каталог проекта.
 
@@ -162,7 +165,7 @@
 |  CORTEX LL   |             –               |     stm32h7xx_ll_cortex.h       |
 |  SYSTEM LL   |             –               |     stm32h7xx_ll_system.h       |
 
-- [x] 3. 	Создайте в каталоге $PROJECT_DIR/lib/hal_ll файл описания библиотеки library.json.  В файле зададим название библиотеки и снимем флаги для строгого вывода предупреждений, так как мы уверены в корректности библиотеки не собираемся её изменять. 
+- [x] 3. 	Создайте в каталоге *$PROJECT_DIR/lib/hal_ll* файл описания библиотеки *library.json.*  В файле зададим название библиотеки и снимем флаги для строгого вывода предупреждений, так как мы уверены в корректности библиотеки не собираемся её изменять. 
 
 *Листинг 1.2 – файл  $PROJECT_DIR/lib/hal_ll/library.json*
 
@@ -174,12 +177,167 @@
 
 Этот флаг активирует определение всех функций и структур библиотеки HAL LL.
 
-### Часть 3. Анализ шаблона программы для выполнения задания
+### Этап 3. Анализ шаблона программы для выполнения задания
 
-- [x] 1. Создайте файл main.c в папке src проекта и скопируйте в него листинг 1.2.
+- [x] 1. Создайте файл *main.c* в папке *src* проекта и скопируйте в него листинг 1.2.
 
+*Листинг 1.2 – $PROJECT_DIR/src/main.c*
+
+``` C++
+#include <stm32h7xx_ll_rcc.h>
+#include <stm32h7xx_ll_pwr.h>
+#include <stm32h7xx_ll_utils.h>
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
+#include <led.h>
+
+#define VARIANT 1
+#define NUM_VARIANTS 2
+#ifndef VARIANT
+    #error "You must define VARIANT"
+#endif
+#if VARIANT > NUM_VARIANTS
+    #error "Unexpected VARIANT"
+#endif
+
+#define MHZ(VAL) VAL ## 000000
+#define KHZ(VAL) VAL ## 000
+const LL_RCC_ClocksTypeDef expected_clocks[NUM_VARIANTS] = {
+    //  { SYSCLK,   CPUCLK,  HCLK,    APB1,     APB2,     APB3,    APB4  
+        { MHZ(128), MHZ(64), MHZ(32), MHZ(16),  MHZ(16),  MHZ(16),  MHZ(16)},
+        { MHZ(3),   MHZ(3),  MHZ(3),  KHZ(1500), KHZ(1500), KHZ(1500), KHZ(1500) } };
+const uint32_t expected_pll_source[NUM_VARIANTS] = { LL_RCC_PLLSOURCE_HSE, LL_RCC_PLLSOURCE_CSI };
+const uint32_t expected_fl[NUM_VARIANTS] = { 2, 0 };
+
+void safe_clock() {
+    uint32_t sw = RCC_CFGR_SW_HSI;
+    uint32_t sws = 0;
+    MODIFY_REG(RCC->CFGR, RCC_CFGR_SW_Msk, sw);
+    do {
+        sws = (RCC->CFGR & RCC_CFGR_SWS_Msk) >> RCC_CFGR_SWS_Pos;
+    } while (sws != sw);
+}
+
+void __assert_func(const char* file, int line, const char* func, const char* failedexpr) {
+    (void)file;
+    (void)func;
+    (void)failedexpr;
+    (void)line;
+    RCC->AHB4ENR |= RCC_AHB4ENR_GPIOBEN;
+    MODIFY_REG(GPIOB->MODER, GPIO_MODER_MODE14, GPIO_MODER_MODE14_0);
+    GPIOB->BSRR = GPIO_BSRR_BS14;
+    safe_clock();
+    __asm("bkpt 1");
+    while (1);
+}
+
+void FIXED_RCC_GetSystemClocksFreq(LL_RCC_ClocksTypeDef* RCC_Clocks) {
+    assert(RCC_Clocks);
+    switch (LL_RCC_GetSysClkSource())
+    {
+    case LL_RCC_SYS_CLKSOURCE_STATUS_HSI:
+        RCC_Clocks->SYSCLK_Frequency = HSI_VALUE >> (LL_RCC_HSI_GetDivider() >> RCC_CR_HSIDIV_Pos);
+        break;
+    case LL_RCC_SYS_CLKSOURCE_STATUS_CSI:
+        RCC_Clocks->SYSCLK_Frequency = CSI_VALUE;
+        break;
+    case LL_RCC_SYS_CLKSOURCE_STATUS_HSE:
+        RCC_Clocks->SYSCLK_Frequency = HSE_VALUE;
+        break;
+    case LL_RCC_SYS_CLKSOURCE_STATUS_PLL1: {
+        LL_PLL_ClocksTypeDef PLL_Clocks;
+        LL_RCC_GetPLL1ClockFreq(&PLL_Clocks);
+        RCC_Clocks->SYSCLK_Frequency = PLL_Clocks.PLL_P_Frequency;
+    } break;
+    default:
+        RCC_Clocks->SYSCLK_Frequency = 0;
+    };
+    uint32_t d1cpre = (RCC->D1CFGR >> 8);
+    if (d1cpre & 8) {
+        uint32_t div_val = 1 << ((d1cpre & 7) + 1);
+        RCC_Clocks->CPUCLK_Frequency = RCC_Clocks->SYSCLK_Frequency / div_val;
+    }
+    else {
+        RCC_Clocks->CPUCLK_Frequency = RCC_Clocks->SYSCLK_Frequency;
+    }
+    RCC_Clocks->HCLK_Frequency = LL_RCC_CALC_HCLK_FREQ(RCC_Clocks->CPUCLK_Frequency, LL_RCC_GetAHBPrescaler());
+    RCC_Clocks->PCLK1_Frequency = LL_RCC_CALC_PCLK1_FREQ(RCC_Clocks->HCLK_Frequency, LL_RCC_GetAPB1Prescaler());
+    RCC_Clocks->PCLK2_Frequency = LL_RCC_CALC_PCLK2_FREQ(RCC_Clocks->HCLK_Frequency, LL_RCC_GetAPB2Prescaler());
+    RCC_Clocks->PCLK3_Frequency = LL_RCC_CALC_PCLK3_FREQ(RCC_Clocks->HCLK_Frequency, LL_RCC_GetAPB3Prescaler());
+    RCC_Clocks->PCLK4_Frequency = LL_RCC_CALC_PCLK4_FREQ(RCC_Clocks->HCLK_Frequency, LL_RCC_GetAPB4Prescaler());
+}
+
+void assert_student_task(int num_variant) {
+    assert(num_variant > 0 && num_variant <= NUM_VARIANTS);
+    int i = num_variant - 1;
+    static LL_RCC_ClocksTypeDef clocks = { 0 };
+    FIXED_RCC_GetSystemClocksFreq(&clocks);
+    assert(memcmp(&expected_clocks[i], &clocks, sizeof(LL_RCC_ClocksTypeDef)) == 0);
+    assert(expected_pll_source[i] == LL_RCC_PLL_GetSource());
+    assert(expected_fl[i] == LL_FLASH_GetLatency());
+}
+
+void configurate_clock() {
+    // 1. Настройка параметров питания. // RM0399:p.276
+    LL_PWR_ConfigSupply(LL_PWR_DIRECT_SMPS_SUPPLY); // UM2408 - p24; RM0399 - p.274-275; ds - p.25
+    LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE3);
+    while (LL_PWR_IsActiveFlag_VOS() == 0) {}
+
+    // 2. Настройка Lattency для FLASH. // RM0399:p.166; DS745:p.25
+    // Hint: LL_FLASH_SetLatency 
+
+    // 3. Включить генератор и дождаться готовности // RM0399:p.366
+    // Для HSE не забыть вызывать LL_RCC_HSE_EnableBypass();    
+    
+    // 4. Установка источника тактирования для PLL (PLL Source Mux)
+    // Hint: LL_RCC_PLL...
+
+    // 5. Конфигурации PLL1; RM-p.365 (структура) p.376 (алгоритм)
+
+    // 5.1. установить значение пре-делителя DIVMx
+
+    // 5.2.установить значение регистра PLLxFRACEN = 0
+
+    // 5.3.установить значение PLLxVCOSEL и PLLxRGE в соответсвии со значением rfx_ck
+    // Hint: LL_RCC_PLL1_SetVCOOutputRange & LL_RCC_PLL1_SetVCOInputRange
+
+    // 5.4.установить значения делителя DIVNx: F(vcox_ck) = F(refx_ck) * DIVNx
+    
+    // 5.5. установить значения делителей DIVPx, DIVQx, DIVRx: F(pllx_p_ck) = F(vcox_ck) * DIVPx, ...
+    
+    // 5.6.Включить выходные сигналы DIVPxEN(pll1_p_ck), DIVQxEN(pll1_q_ck), DIVRxEN(pll1_r_ck).
+
+    // 5.7.Включить PLLx c помощью регистра RCC->CR 
+
+    // и дождаться флага готовности PLLxRDY.
+    while (LL_RCC_PLL1_IsReady() == 0) {}
+
+    // 6. Конфигурация делителей системный шин D1CPRE, HPRE, D1PPRE, D2PPRE2, D3PPRE
+    // Hint: LL_RCC_SetSysPrescaler LL_RCC_SetAHBPrescal eLL_RCC_SetAPB..
+
+    // 7. Задаем источник System Clock
+
+    // и дождаться установки выбранного режима
+    // hint: while (LL_RCC_GetSysClkSource() != ???);
+}
+
+int main() {
+    configurate_clock();
+    assert_student_task(VARIANT);
+    SystemCoreClockUpdate();
+    LL_Init1msTick(SystemCoreClock);
+    led_green_enable();
+    while (1) {
+        led_green_toggle();
+        LL_mDelay(500);
+    }
+    return 0;   
+}
+```
 - [x] 2. Выполните сборку проекта. Убедитесь в отсутствии ошибок.
 - [x] 3. Проанализируйте код main.c
+
 
 ```В1. Каким образом выполняется конкатенация в макросах С?```
 
@@ -187,7 +345,7 @@
 
 ```В3. Что произойдет при прохождении (не прохождении) функции assert_student_task()?```
 
-### Часть 4. Практическое задание.
+### Этап 4. Практическое задание.
 
 - [x] 1. Установите значение макроопределения VARIANT (строка 10) в соответствии в Вашим вариантом задания.
 - [x] 2. Реализуйте функцию configurate_clock(), для конфигурации тактировании микроконтроллера в соответствии c вариантом.
@@ -202,6 +360,6 @@
 
 При корректной реализации функции на плате должен мигать зеленый светодиод. 
 
-Если полученная конфигурация не верна, то будет гореть красный светодиод. Проведите отладку функции assert_student_task, чтобы узнать какая частота не соответствует заданию.
+Если полученная конфигурация не верна, то будет гореть красный светодиод. Проведите отладку функции *assert_student_task*, чтобы узнать какая частота не соответствует заданию.
 
 Если светодиоды не горят, то, вероятно, программа зависла в цикле ожидания. Проверьте это с помощью отладчика.
